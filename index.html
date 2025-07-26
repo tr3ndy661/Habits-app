@@ -12,68 +12,68 @@
         </header>
 
         <main>
-            <div class="calendar-grid">
-                <!-- 35 empty day tiles -->
+    <div class="tab-container">
+        <button class="tab-btn active" data-view="calendar">📅 Calendar</button>
+        <button class="tab-btn" data-view="history">📋 History</button>
+    </div>
 
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
-                <div class="day-tile"></div>
+    <div class="view-container">
+        <div id="calendarView" class="view active">
+            <!-- Existing calendar content -->
+            <div class="calendar-header">
+                <button id="prevMonth">&lt;</button>
+                <h2 id="monthDisplay"></h2>
+                <button id="nextMonth">&gt;</button>
             </div>
-            <div id="moodModal" class="modal">
+            <div class="calendar-weekdays">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+            <div class="calendar-grid">
+                <!-- Calendar will be generated here -->
+            </div>
+        </div>
+
+        <div id="historyView" class="view">
+            <div class="history-filters">
+                <select id="moodFilter">
+                    <option value="">All Moods</option>
+                    <option value="😊">😊 Happy</option>
+                    <option value="😐">😐 Neutral</option>
+                    <option value="😔">😔 Sad</option>
+                    <option value="😡">😡 Angry</option>
+                    <option value="😴">😴 Tired</option>
+                </select>
+                <input type="text" id="searchNotes" placeholder="Search notes...">
+            </div>
+            <div class="entries-list">
+                <!-- Entries will be listed here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Add this modal structure -->
+    <div id="moodModal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
-            <h2>Select Your Mood</h2>
-
-            <!-- Mood Options -->
+            <h2>How are you feeling?</h2>
             <div class="mood-options">
-            <button class="mood-btn" data-mood="😊">😊</button>
-            <button class="mood-btn" data-mood="😐">😐</button>
-            <button class="mood-btn" data-mood="😔">😔</button>
-            <button class="mood-btn" data-mood="😡">😡</button>
-            <button class="mood-btn" data-mood="😴">😴</button>
+                <button class="mood-btn" data-mood="😊">😊</button>
+                <button class="mood-btn" data-mood="😐">😐</button>
+                <button class="mood-btn" data-mood="😔">😔</button>
+                <button class="mood-btn" data-mood="😡">😡</button>
+                <button class="mood-btn" data-mood="😴">😴</button>
             </div>
-
-            <!-- Note input -->
-            <textarea id="moodNote" placeholder="Write a short note..."></textarea>
-            <br>
-            <!-- Save -->
+            <textarea id="moodNote" placeholder="Add a note about your day..."></textarea>
             <button id="saveMood">Save</button>
         </div>
-        </div>
-
-        </main>
+    </div>
+</main>
 
 
   <script src="script.js"></script>
