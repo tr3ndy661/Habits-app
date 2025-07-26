@@ -1,0 +1,35 @@
+body {
+  background-color: #f0f8ff;
+  font-family: sans-serif;
+  margin-top: 50px;
+  margin-left: 20%;
+  margin-right: 20%;
+}
+
+header {
+  background-color: #ffd1dc;
+  padding: 20px;
+  text-align: center;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr); /* 7 columns */
+  gap: 10px;
+  padding: 0 20px;
+}
+
+.day-tile {
+  background-color: #e0f7fa;
+  width: 100%;
+  padding-top: 100%; /* makes it a perfect square */
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.day-tile:hover {
+  background-color: #b2ebf2;
+}
