@@ -101,10 +101,31 @@ function switchView(viewName) {
 // Add this function to update history view
 function updateHistoryView() {
     const entriesList = document.querySelector('.entries-list');
+    const contributionGrid = document.getElementById('contributionGrid');
     entriesList.innerHTML = '';
+    contributionGrid.innerHTML = '';
+
+    // Create contribution data structure
+    const today = new Date();
+    const yearAgo = new Date();
+    yearAgo.setFullYear(today.getFullYear() - 1);
+    
+    // Create contribution cells for the past year
+    const days = [];
+    for (let d = new Date(yearAgo); d <= today; d.setDate(d.getDate() + 1)) {
+        days.push(new Date(d));
+    }
     
     // Get all entries from localStorage
     const entries = [];
+    const moodIntensities = {
+        "😊": 4,
+        "😐": 2,
+        "😔": 1,
+        "😡": 3,
+        "😴": 2
+    };
+
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -112,6 +133,42 @@ function updateHistoryView() {
             entries.push({ date: key, ...entry });
         }
     }
+
+    // Create contribution cells
+    days.forEach(date => {
+        const cell = document.createElement('div');
+        cell.className = 'contribution-cell';
+        const dateStr = date.toISOString().split('T')[0];
+        const entry = entries.find(e => e.date === dateStr);
+        
+        if (entry) {
+            const intensity = moodIntensities[entry.mood] || 0;
+            cell.classList.add(`intensity-${intensity}`);
+            
+            // Add tooltip
+            cell.title = `${date.toLocaleDateString()}\n${entry.mood} ${entry.note || ''}`;
+            
+            // Add hover effect
+            cell.addEventListener('mouseover', (e) => {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'contribution-tooltip';
+                tooltip.textContent = cell.title;
+                tooltip.style.left = `${e.pageX + 10}px`;
+                tooltip.style.top = `${e.pageY + 10}px`;
+                document.body.appendChild(tooltip);
+            });
+
+            cell.addEventListener('mouseout', () => {
+                const tooltip = document.querySelector('.contribution-tooltip');
+                if (tooltip) tooltip.remove();
+            });
+        } else {
+            cell.classList.add('intensity-0');
+            cell.title = `No mood recorded for ${date.toLocaleDateString()}`;
+        }
+        
+        contributionGrid.appendChild(cell);
+    });
     
     // Sort entries by date (newest first)
     entries.sort((a, b) => new Date(b.date) - new Date(a.date));
