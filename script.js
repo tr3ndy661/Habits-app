@@ -1,4 +1,47 @@
-import { auth, saveMoodEntry, getMoodEntries } from './firebase.js';
+import { auth, saveMoodEntry, getMoodEntries, storage, ref, uploadBytes, getDownloadURL, updateProfile } from './firebase.js';
+
+// Image compression function
+async function compressImage(file) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                } else {
+                    if (height > MAX_HEIGHT) {
+                        width *= MAX_HEIGHT / height;
+                        height = MAX_HEIGHT;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    resolve(new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now(),
+                    }));
+                }, 'image/jpeg', 0.7);
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
 
 // Initialize DOM elements
 const modal = document.getElementById('moodModal');
@@ -258,20 +301,87 @@ async function updateProfilePhoto(file) {
     if (!file) return;
     
     try {
-        const storageRef = ref(storage, `profile_pictures/${auth.currentUser.uid}`);
-        await uploadBytes(storageRef, file);
-        const photoURL = await getDownloadURL(storageRef);
+        // Show loading state
+        const userAvatar = document.getElementById('userAvatar');
+        const userAvatarLarge = document.getElementById('userAvatarLarge');
+        userAvatar.style.opacity = '0.5';
+        userAvatarLarge.style.opacity = '0.5';
+
+        // Create a unique filename using timestamp
+        const fileExtension = file.name.split('.').pop();
+        const fileName = `profile_${Date.now()}.${fileExtension}`;
         
+        // Create a reference to the file in Firebase Storage
+        const storageRef = ref(storage, `users/${auth.currentUser.uid}/profile/${fileName}`);
+        
+        // Compress image if it's too large
+        let imageToUpload = file;
+        if (file.size > 500000) { // If larger than 500KB
+            imageToUpload = await compressImage(file);
+        }
+
+        // Upload with retry logic
+        console.log('Starting file upload...');
+        let snapshot;
+        try {
+            snapshot = await uploadBytes(storageRef, imageToUpload);
+            console.log('File uploaded successfully');
+        } catch (uploadError) {
+            console.error('Upload failed, retrying...', uploadError);
+            // Retry once after 1 second
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            snapshot = await uploadBytes(storageRef, imageToUpload);
+        }
+
+        // Get the download URL with retry logic
+        console.log('Getting download URL...');
+        let photoURL;
+        try {
+            photoURL = await getDownloadURL(snapshot.ref);
+            console.log('Got download URL:', photoURL);
+        } catch (urlError) {
+            console.error('Failed to get URL, retrying...', urlError);
+            // Retry once after 1 second
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            photoURL = await getDownloadURL(snapshot.ref);
+        }
+        
+        // Update the user's profile
+        console.log('Updating profile...');
         await updateProfile(auth.currentUser, {
             photoURL: photoURL
         });
+        console.log('Profile updated successfully');
         
         // Update UI
-        document.getElementById('userAvatar').src = photoURL;
-        document.getElementById('userAvatarLarge').src = photoURL;
+        userAvatar.style.opacity = '1';
+        userAvatarLarge.style.opacity = '1';
+        userAvatar.src = photoURL;
+        userAvatarLarge.src = photoURL;
+
+        // Force a reload of the images
+        userAvatar.onload = () => console.log('Avatar loaded successfully');
+        userAvatarLarge.onload = () => console.log('Large avatar loaded successfully');
+        
     } catch (error) {
         console.error('Error updating profile photo:', error);
-        alert('Failed to update profile photo.');
+        
+        // Reset opacity
+        document.getElementById('userAvatar').style.opacity = '1';
+        document.getElementById('userAvatarLarge').style.opacity = '1';
+        
+        // Show detailed error message
+        let errorMessage = 'Failed to update profile photo: ';
+        if (error.code === 'storage/unauthorized') {
+            errorMessage += 'You are not authorized to upload files.';
+        } else if (error.code === 'storage/canceled') {
+            errorMessage += 'Upload was canceled.';
+        } else if (error.code === 'storage/unknown') {
+            errorMessage += 'An unknown error occurred.';
+        } else {
+            errorMessage += error.message;
+        }
+        alert(errorMessage);
     }
 }
 

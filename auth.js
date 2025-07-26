@@ -1,4 +1,4 @@
-import { signInWithGoogle, signInWithEmail, signUpWithEmail, signOutUser, auth } from './firebase.js';
+import { signInWithGoogle, signInWithEmail, signUpWithEmail, signOutUser, auth, updateProfile } from './firebase.js';
 
 // Show/hide auth modal
 export const showAuthModal = () => {
@@ -11,6 +11,19 @@ export const hideAuthModal = () => {
     authModal.style.display = 'none';
 };
 
+// Function to update user's display name
+async function updateUserDisplayName(newName) {
+    try {
+        await updateProfile(auth.currentUser, {
+            displayName: newName
+        });
+        console.log('Display name updated successfully');
+    } catch (error) {
+        console.error('Error updating display name:', error);
+        alert('Failed to update display name. Please try again.');
+    }
+}
+
 // Handle auth state changes
 auth.onAuthStateChanged((user) => {
     const authModal = document.getElementById('authModal');
@@ -21,6 +34,24 @@ auth.onAuthStateChanged((user) => {
     const userAvatarLarge = document.getElementById('userAvatarLarge');
     const welcomeUser = document.getElementById('welcomeUser');
     const userProfile = document.getElementById('userProfile');
+
+    // Set up display name update handling
+    if (userDisplayName) {
+        userDisplayName.addEventListener('blur', async (e) => {
+            const newName = e.target.textContent.trim();
+            if (newName && newName !== auth.currentUser.displayName) {
+                await updateUserDisplayName(newName);
+                welcomeUser.textContent = newName;
+            }
+        });
+
+        userDisplayName.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                userDisplayName.blur();
+            }
+        });
+    }
 
     if (user) {
         // User is signed in

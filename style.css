@@ -153,6 +153,8 @@ header h1 {
   padding: 2px 5px;
   border-radius: 4px;
   cursor: text;
+  min-width: 50px;
+  display: inline-block;
 }
 
 #userDisplayName:hover {
@@ -162,6 +164,12 @@ header h1 {
 #userDisplayName:focus {
   outline: none;
   background: #f0f0f0;
+  border-bottom: 2px solid #ffd1dc;
+}
+
+#userDisplayName:empty:before {
+  content: 'Enter name';
+  color: #999;
 }
 
 .user-email {

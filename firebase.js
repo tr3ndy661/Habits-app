@@ -17,9 +17,15 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+
+// Initialize Firebase services with region and custom domain
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
+const storage = getStorage(app, "gs://moodboard-3d1ec.firebasestorage.app");
+
+// Configure Storage to use custom domain
+storage.maxOperationRetryTime = 10000; // 10 seconds
+storage.maxUploadRetryTime = 10000; // 10 seconds
 const googleProvider = new GoogleAuthProvider();
 
 // Authentication functions
@@ -83,4 +89,13 @@ export const getMoodEntries = async (userId) => {
     }
 };
 
-export { auth, db };
+// Export Firebase instances and auth functions
+export { 
+    auth, 
+    db, 
+    storage, 
+    updateProfile,
+    ref,
+    uploadBytes,
+    getDownloadURL
+};
