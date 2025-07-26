@@ -1,3 +1,5 @@
+import { auth, saveMoodEntry, getMoodEntries } from './firebase.js';
+
 // Initialize DOM elements
 const modal = document.getElementById('moodModal');
 const closeBtn = document.querySelector('.close-button');
@@ -86,7 +88,7 @@ function handleDayClick(tile) {
 }
 
 // Add this function to handle tab switching
-function switchView(viewName) {
+async function switchView(viewName) {
     tabButtons.forEach(btn => {
         btn.classList.toggle('active', btn.dataset.view === viewName);
     });
@@ -94,12 +96,17 @@ function switchView(viewName) {
         view.classList.toggle('active', view.id === `${viewName}View`);
     });
     if (viewName === 'history') {
-        updateHistoryView();
+        await updateHistoryView();
     }
 }
 
 // Add this function to update history view
-function updateHistoryView() {
+async function updateHistoryView() {
+    if (!auth.currentUser) {
+        console.log('No user logged in');
+        return;
+    }
+
     const entriesList = document.querySelector('.entries-list');
     const contributionGrid = document.getElementById('contributionGrid');
     entriesList.innerHTML = '';
@@ -116,15 +123,27 @@ function updateHistoryView() {
         days.push(new Date(d));
     }
     
-    // Get all entries from localStorage
-    const entries = [];
-    const moodIntensities = {
-        "😊": 4,
-        "😐": 2,
-        "😔": 1,
-        "😡": 3,
-        "😴": 2
-    };
+    // Get all entries from Firestore
+    try {
+        const entries = [];
+        const moodData = await getMoodEntries(auth.currentUser.uid);
+        for (const [date, data] of Object.entries(moodData)) {
+            entries.push({
+                date: date,
+                mood: data.mood,
+                note: data.note,
+                timestamp: data.timestamp
+            });
+        }
+        console.log('Fetched entries:', entries);
+        
+        const moodIntensities = {
+            "😊": 4,
+            "😐": 2,
+            "😔": 1,
+            "😡": 3,
+            "😴": 2
+        };
 
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -170,55 +189,126 @@ function updateHistoryView() {
         contributionGrid.appendChild(cell);
     });
     
-    // Sort entries by date (newest first)
-    entries.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // Apply filters
-    const filterMood = moodFilter.value;
-    const searchText = searchNotes.value.toLowerCase();
-    
-    const filteredEntries = entries.filter(entry => {
-        const matchesMood = !filterMood || entry.mood === filterMood;
-        const matchesSearch = !searchText || 
-            entry.note.toLowerCase().includes(searchText);
-        return matchesMood && matchesSearch;
-    });
-    
-    // Create entry elements
-    filteredEntries.forEach(entry => {
-        const entryDate = new Date(entry.timestamp || entry.date);
-        const formattedDate = entryDate.toLocaleDateString('default', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
+        // Sort entries by date (newest first)
+        entries.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        // Apply filters
+        const filterMood = moodFilter.value;
+        const searchText = searchNotes.value.toLowerCase();
+        
+        const filteredEntries = entries.filter(entry => {
+            const matchesMood = !filterMood || entry.mood === filterMood;
+            const matchesSearch = !searchText || 
+                entry.note.toLowerCase().includes(searchText);
+            return matchesMood && matchesSearch;
         });
         
-        const formattedTime = entryDate.toLocaleTimeString('default', {
-            hour: '2-digit',
-            minute: '2-digit'
+        // Create entry elements
+        filteredEntries.forEach(entry => {
+            const entryDate = new Date(entry.timestamp || entry.date);
+            const formattedDate = entryDate.toLocaleDateString('default', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            const formattedTime = entryDate.toLocaleTimeString('default', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const entryElement = document.createElement('div');
+            entryElement.className = 'entry-card';
+            entryElement.style.backgroundColor = getMoodColor(entry.mood);
+            
+            entryElement.innerHTML = `
+                <div class="entry-mood">${entry.mood}</div>
+                <div class="entry-details">
+                    <div class="entry-date">${formattedDate}</div>
+                    <div class="entry-time">${formattedTime}</div>
+                </div>
+                <div class="entry-note">${entry.note || 'No note'}</div>
+            `;
+            
+            entriesList.appendChild(entryElement);
         });
-        
-        const entryElement = document.createElement('div');
-        entryElement.className = 'entry-card';
-        entryElement.style.backgroundColor = getMoodColor(entry.mood);
-        
-        entryElement.innerHTML = `
-            <div class="entry-mood">${entry.mood}</div>
-            <div class="entry-details">
-                <div class="entry-date">${formattedDate}</div>
-                <div class="entry-time">${formattedTime}</div>
-            </div>
-            <div class="entry-note">${entry.note || 'No note'}</div>
-        `;
-        
-        entriesList.appendChild(entryElement);
-    });
+    } catch (error) {
+        console.error('Error updating history view:', error);
+    }
 }
 
 // Update the DOMContentLoaded event listener
+// Profile Menu Functions
+function toggleProfileMenu() {
+    const profileMenu = document.getElementById('profileMenu');
+    profileMenu.classList.toggle('active');
+}
+
+function handleClickOutside(event) {
+    const profileMenu = document.getElementById('profileMenu');
+    const profilePicture = document.getElementById('profilePicture');
+    
+    if (!profileMenu.contains(event.target) && !profilePicture.contains(event.target)) {
+        profileMenu.classList.remove('active');
+    }
+}
+
+async function updateProfilePhoto(file) {
+    if (!file) return;
+    
+    try {
+        const storageRef = ref(storage, `profile_pictures/${auth.currentUser.uid}`);
+        await uploadBytes(storageRef, file);
+        const photoURL = await getDownloadURL(storageRef);
+        
+        await updateProfile(auth.currentUser, {
+            photoURL: photoURL
+        });
+        
+        // Update UI
+        document.getElementById('userAvatar').src = photoURL;
+        document.getElementById('userAvatarLarge').src = photoURL;
+    } catch (error) {
+        console.error('Error updating profile photo:', error);
+        alert('Failed to update profile photo.');
+    }
+}
+
+async function updateDisplayName(newName) {
+    try {
+        await updateProfile(auth.currentUser, {
+            displayName: newName
+        });
+    } catch (error) {
+        console.error('Error updating display name:', error);
+        alert('Failed to update display name.');
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     // First, verify all required elements exist
+    
+    // Add profile menu event listeners
+    const profilePicture = document.getElementById('profilePicture');
+    const photoInput = document.getElementById('photoInput');
+    const userDisplayName = document.getElementById('userDisplayName');
+    
+    profilePicture?.addEventListener('click', toggleProfileMenu);
+    document.addEventListener('click', handleClickOutside);
+    
+    photoInput?.addEventListener('change', (e) => {
+        if (e.target.files[0]) {
+            updateProfilePhoto(e.target.files[0]);
+        }
+    });
+    
+    userDisplayName?.addEventListener('blur', (e) => {
+        const newName = e.target.textContent.trim();
+        if (newName && newName !== auth.currentUser.displayName) {
+            updateDisplayName(newName);
+        }
+    });
     const modal = document.getElementById('moodModal');
     const closeBtn = document.querySelector('.close-button');
     const saveMoodBtn = document.getElementById('saveMood');
@@ -271,8 +361,8 @@ document.addEventListener("DOMContentLoaded", function() {
     searchNotes.addEventListener('input', updateHistoryView);
 
     // Update save functionality to include timestamp
-    saveMoodBtn?.addEventListener('click', function() {
-        if (!selectedMood || !selectedDate) {
+    saveMoodBtn?.addEventListener('click', async function() {
+        if (!selectedMood || !selectedDate || !auth.currentUser) {
             alert("Please select a mood and a date.");
             return;
         }
@@ -283,12 +373,17 @@ document.addEventListener("DOMContentLoaded", function() {
             timestamp: new Date().toISOString()
         };
 
-        localStorage.setItem(selectedDate, JSON.stringify(moodEntry));
-        updateTileWithMood(selectedDate, selectedMood);
-        modal.style.display = 'none';
+        try {
+            await saveMoodEntry(auth.currentUser.uid, selectedDate, moodEntry);
+            updateTileWithMood(selectedDate, selectedMood);
+            modal.style.display = 'none';
         
-        if (document.getElementById('historyView').classList.contains('active')) {
-            updateHistoryView();
+            if (document.getElementById('historyView').classList.contains('active')) {
+                updateHistoryView();
+            }
+        } catch (error) {
+            console.error("Error saving mood entry:", error);
+            alert("Failed to save mood entry.");
         }
     });
 });

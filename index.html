@@ -5,10 +5,75 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MoodBoard Journal</title>
   <link rel="stylesheet" href="style.css" />
+  <script type="module" src="firebase.js"></script>
+  <script type="module" src="auth.js"></script>
 </head>
 <body>
+    <div id="authModal" class="modal">
+        <div class="modal-content auth-modal">
+            <div id="loginContainer">
+                <h2>Login</h2>
+                <form id="loginForm">
+                    <input type="email" id="loginEmail" placeholder="Email" required>
+                    <input type="password" id="loginPassword" placeholder="Password" required>
+                    <button type="submit">Login</button>
+                </form>
+                <button id="googleSignIn" class="google-btn">
+                    <img src="https://www.google.com/favicon.ico" alt="Google">
+                    Sign in with Google
+                </button>
+                <p>Don't have an account? <a href="#" id="switchToSignup">Sign up</a></p>
+            </div>
+            
+            <div id="signupContainer" style="display: none;">
+                <h2>Sign Up</h2>
+                <form id="signupForm">
+                    <input type="email" id="signupEmail" placeholder="Email" required>
+                    <input type="password" id="signupPassword" placeholder="Password" required>
+                    <button type="submit">Sign Up</button>
+                </form>
+                <p>Already have an account? <a href="#" id="switchToLogin">Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="mainContent" style="display: none;">
         <header>
-        <h1>🧠 MoodBoard Journal</h1>
+            <h1>🧠 MoodBoard Journal</h1>
+            <div class="user-controls">
+                <div class="welcome-message">Welcome back, <span id="welcomeUser"></span>!</div>
+                <div class="user-profile" id="userProfile">
+                    <div class="profile-picture" id="profilePicture">
+                        <img src="https://api.dicebear.com/6.x/initials/svg?seed=??" id="userAvatar" alt="Profile Picture">
+                    </div>
+                    <div class="profile-menu" id="profileMenu">
+                        <div class="menu-header">
+                            <div class="profile-picture-large">
+                                <img src="https://api.dicebear.com/6.x/initials/svg?seed=??" id="userAvatarLarge" alt="Profile Picture">
+                                <label for="photoInput" class="change-photo-btn oauth-hide">
+                                    <span>📷</span>
+                                    <input type="file" id="photoInput" accept="image/*" style="display: none;">
+                                </label>
+                            </div>
+                            <div class="profile-info">
+                                <span id="userDisplayName" class="oauth-readonly">Username</span>
+                                <span id="userEmail" class="user-email"></span>
+                            </div>
+                        </div>
+                        <div class="menu-options">
+                            <button class="menu-option oauth-hide" id="editProfileBtn">
+                                <span>👤</span> Edit Profile
+                            </button>
+                            <button class="menu-option oauth-hide" id="settingsBtn">
+                                <span>⚙️</span> Settings
+                            </button>
+                            <button class="menu-option" id="signOutBtn">
+                                <span>🚪</span> Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </header>
 
         <main>
@@ -95,6 +160,6 @@
 </main>
 
 
-  <script src="script.js"></script>
+  <script type="module" src="script.js"></script>
 </body>
 </html>
