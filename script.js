@@ -186,12 +186,17 @@ function updateHistoryView() {
     
     // Create entry elements
     filteredEntries.forEach(entry => {
-        const entryDate = new Date(entry.date);
+        const entryDate = new Date(entry.timestamp || entry.date);
         const formattedDate = entryDate.toLocaleDateString('default', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric'
+        });
+        
+        const formattedTime = entryDate.toLocaleTimeString('default', {
+            hour: '2-digit',
+            minute: '2-digit'
         });
         
         const entryElement = document.createElement('div');
@@ -202,7 +207,7 @@ function updateHistoryView() {
             <div class="entry-mood">${entry.mood}</div>
             <div class="entry-details">
                 <div class="entry-date">${formattedDate}</div>
-                <div class="entry-time">${entryDate.toLocaleTimeString()}</div>
+                <div class="entry-time">${formattedTime}</div>
             </div>
             <div class="entry-note">${entry.note || 'No note'}</div>
         `;
