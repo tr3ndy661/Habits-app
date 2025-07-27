@@ -55,9 +55,20 @@ const views = document.querySelectorAll('.view');
 const moodFilter = document.getElementById('moodFilter');
 const searchNotes = document.getElementById('searchNotes');
 
+// Modal elements
+const editModal = document.getElementById('editModal');
+const deleteModal = document.getElementById('deleteModal');
+const editNoteInput = document.getElementById('editNoteInput');
+const saveEditBtn = document.getElementById('saveEditBtn');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+
 let currentDate = new Date();
 let selectedDate = null;
 let selectedMood = null;
+let currentEditEntry = null;
+let currentDeleteEntry = null;
 
 function generateCalendar(date) {
     const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -109,6 +120,7 @@ function generateCalendar(date) {
         calendarGrid.appendChild(tile);
     }
 }
+
 function handleDayClick(tile) {
     selectedDate = tile.dataset.date;
     const savedEntry = localStorage.getItem(selectedDate);
@@ -116,7 +128,7 @@ function handleDayClick(tile) {
     if (savedEntry) {
         const entry = JSON.parse(savedEntry);
         selectedMood = entry.mood;
-        if (noteInput) noteInput.value = entry.note;
+        if (noteInput) noteInput.value = entry.note || '';
         
         moodButtons.forEach(btn => {
             btn.classList.toggle('selected', btn.dataset.mood === entry.mood);
@@ -128,6 +140,10 @@ function handleDayClick(tile) {
     }
     
     modal.style.display = 'flex';
+    // Add animation class
+    setTimeout(() => {
+        modal.querySelector('.modal-content').classList.add('modal-enter');
+    }, 10);
 }
 
 // Add this function to handle tab switching
@@ -141,6 +157,41 @@ async function switchView(viewName) {
     if (viewName === 'history') {
         await updateHistoryView();
     }
+}
+
+// Enhanced modal functions
+function openEditModal(entry) {
+    currentEditEntry = entry;
+    editNoteInput.value = entry.note || '';
+    editModal.style.display = 'flex';
+    setTimeout(() => {
+        editModal.querySelector('.modal-content').classList.add('modal-enter');
+        editNoteInput.focus();
+    }, 10);
+}
+
+function closeEditModal() {
+    editModal.querySelector('.modal-content').classList.remove('modal-enter');
+    setTimeout(() => {
+        editModal.style.display = 'none';
+        currentEditEntry = null;
+    }, 300);
+}
+
+function openDeleteModal(entry) {
+    currentDeleteEntry = entry;
+    deleteModal.style.display = 'flex';
+    setTimeout(() => {
+        deleteModal.querySelector('.modal-content').classList.add('modal-enter');
+    }, 10);
+}
+
+function closeDeleteModal() {
+    deleteModal.querySelector('.modal-content').classList.remove('modal-enter');
+    setTimeout(() => {
+        deleteModal.style.display = 'none';
+        currentDeleteEntry = null;
+    }, 300);
 }
 
 // Add this function to update history view
@@ -166,7 +217,7 @@ async function updateHistoryView() {
         days.push(new Date(d));
     }
     
-    // Get all entries from Firestore
+    // Get all entries from Firestore and localStorage
     try {
         const entries = [];
         const moodData = await getMoodEntries(auth.currentUser.uid);
@@ -174,11 +225,10 @@ async function updateHistoryView() {
             entries.push({
                 date: date,
                 mood: data.mood,
-                note: data.note,
+                note: data.note || '', // Ensure note is never undefined
                 timestamp: data.timestamp
             });
         }
-        console.log('Fetched entries:', entries);
         
         const moodIntensities = {
             "😊": 4,
@@ -188,50 +238,60 @@ async function updateHistoryView() {
             "😴": 2
         };
 
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const entry = JSON.parse(localStorage.getItem(key));
-            entries.push({ date: key, ...entry });
+        // Also get from localStorage for offline entries
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                const entry = JSON.parse(localStorage.getItem(key));
+                // Check if entry doesn't already exist from Firestore
+                if (!entries.find(e => e.date === key)) {
+                    entries.push({ 
+                        date: key, 
+                        mood: entry.mood,
+                        note: entry.note || '', // Ensure note is never undefined
+                        timestamp: entry.timestamp
+                    });
+                }
+            }
         }
-    }
 
-    // Create contribution cells
-    days.forEach(date => {
-        const cell = document.createElement('div');
-        cell.className = 'contribution-cell';
-        const dateStr = date.toISOString().split('T')[0];
-        const entry = entries.find(e => e.date === dateStr);
-        
-        if (entry) {
-            const intensity = moodIntensities[entry.mood] || 0;
-            cell.classList.add(`intensity-${intensity}`);
+        // Create contribution cells
+        days.forEach(date => {
+            const cell = document.createElement('div');
+            cell.className = 'contribution-cell';
+            const dateStr = date.toISOString().split('T')[0];
+            const entry = entries.find(e => e.date === dateStr);
             
-            // Add tooltip
-            cell.title = `${date.toLocaleDateString()}\n${entry.mood} ${entry.note || ''}`;
-            
-            // Add hover effect
-            cell.addEventListener('mouseover', (e) => {
-                const tooltip = document.createElement('div');
-                tooltip.className = 'contribution-tooltip';
-                tooltip.textContent = cell.title;
-                tooltip.style.left = `${e.pageX + 10}px`;
-                tooltip.style.top = `${e.pageY + 10}px`;
-                document.body.appendChild(tooltip);
-            });
+            if (entry) {
+                const intensity = moodIntensities[entry.mood] || 0;
+                cell.classList.add(`intensity-${intensity}`);
+                
+                // Add tooltip
+                const noteText = entry.note ? entry.note : 'No note';
+                cell.title = `${date.toLocaleDateString()}\n${entry.mood} ${noteText}`;
+                
+                // Add hover effect
+                cell.addEventListener('mouseover', (e) => {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'contribution-tooltip';
+                    tooltip.textContent = cell.title;
+                    tooltip.style.left = `${e.pageX + 10}px`;
+                    tooltip.style.top = `${e.pageY + 10}px`;
+                    document.body.appendChild(tooltip);
+                });
 
-            cell.addEventListener('mouseout', () => {
-                const tooltip = document.querySelector('.contribution-tooltip');
-                if (tooltip) tooltip.remove();
-            });
-        } else {
-            cell.classList.add('intensity-0');
-            cell.title = `No mood recorded for ${date.toLocaleDateString()}`;
-        }
+                cell.addEventListener('mouseout', () => {
+                    const tooltip = document.querySelector('.contribution-tooltip');
+                    if (tooltip) tooltip.remove();
+                });
+            } else {
+                cell.classList.add('intensity-0');
+                cell.title = `No mood recorded for ${date.toLocaleDateString()}`;
+            }
+            
+            contributionGrid.appendChild(cell);
+        });
         
-        contributionGrid.appendChild(cell);
-    });
-    
         // Sort entries by date (newest first)
         entries.sort((a, b) => new Date(b.date) - new Date(a.date));
         
@@ -242,12 +302,12 @@ async function updateHistoryView() {
         const filteredEntries = entries.filter(entry => {
             const matchesMood = !filterMood || entry.mood === filterMood;
             const matchesSearch = !searchText || 
-                entry.note.toLowerCase().includes(searchText);
+                (entry.note && entry.note.toLowerCase().includes(searchText));
             return matchesMood && matchesSearch;
         });
         
-        // Create entry elements
-        filteredEntries.forEach(entry => {
+        // Create entry elements with stagger animation
+        filteredEntries.forEach((entry, index) => {
             const entryDate = new Date(entry.timestamp || entry.date);
             const formattedDate = entryDate.toLocaleDateString('default', {
                 weekday: 'long',
@@ -264,27 +324,31 @@ async function updateHistoryView() {
             const entryElement = document.createElement('div');
             entryElement.className = 'entry-card';
             entryElement.style.backgroundColor = getMoodColor(entry.mood);
+            entryElement.style.animationDelay = `${index * 0.1}s`;
         
             // handling the readmore/less functionality
             const fullNote = entry.note || 'No note';
             const shortNote = fullNote.length > 100 ? fullNote.slice(0, 100) + '...' : fullNote;
             const showReadMore = fullNote.length > 100;
 
+            // Replace the existing entryElement.innerHTML with this updated version:
             entryElement.innerHTML = `
                 <div class="entry-mood">${entry.mood}</div>
-                <div class="entry-details">
-                    <div class="entry-date">${formattedDate}</div>
-                    <div class="entry-time">${formattedTime}</div>
+                <div class="entry-content">
+                    <div class="entry-details">
+                        <div class="entry-date">${formattedDate}</div>
+                        <div class="entry-time">${formattedTime}</div>
+                    </div>
+                    <div class="entry-note">
+                        <span class="short-note">${shortNote}</span>
+                        ${showReadMore ? `<span class="full-note" style="display:none;">${fullNote}</span>` : ''}
+                        ${showReadMore ? `<button class="read-more-btn">Read more</button>` : ''}
+                    </div>
+                    <div class="entry-actions">
+                        <button class="edit-entry-btn">✏️</button>
+                        <button class="remove-entry-btn">🗑️</button>
+                    </div>
                 </div>
-                <div class="entry-note">
-                    <span class="short-note">${shortNote}</span>
-                    ${showReadMore ? `<span class="full-note" style="display:none;">${fullNote}</span>` : ''}
-                    ${showReadMore ? `<button class="read-more-btn">Read more</button>` : ''}
-                </div>
-                <div class="entry-actions">
-                <button class="edit-entry-btn">✏️</button>
-                <button class="remove-entry-btn">🗑️</button>
-            </div>
             `;
             if (showReadMore) {
                 const readMoreBtn = entryElement.querySelector('.read-more-btn');
@@ -303,43 +367,18 @@ async function updateHistoryView() {
                     }
                 });
             }
-            // Handle Edit functionality
+
+
+            // Handle Edit functionality with modal
             const editBtn = entryElement.querySelector('.edit-entry-btn');
             editBtn.addEventListener('click', () => {
-            const newNote = prompt("Edit your note:", entry.note || '');
-            if (newNote !== null) {
-                entry.note = newNote;
-                entry.timestamp = new Date().toISOString();
-
-                // Save to Firestore
-                saveMoodEntry(auth.currentUser.uid, entry.date, entry)
-                .then(() => {
-                    localStorage.setItem(entry.date, JSON.stringify(entry));
-                    updateHistoryView(); // Refresh view
-                })
-                .catch(err => {
-                    console.error("Error saving edited entry:", err);
-                    alert("Failed to save changes.");
-                });
-            }
+                openEditModal(entry);
             });
 
-            // Handle Remove functionality
+            // Handle Remove functionality with modal
             const removeBtn = entryElement.querySelector('.remove-entry-btn');
             removeBtn.addEventListener('click', () => {
-            const confirmDelete = confirm("Are you sure you want to delete this entry?");
-            if (!confirmDelete) return;
-
-            // Delete from Firestore
-            saveMoodEntry(auth.currentUser.uid, entry.date, null)
-                .then(() => {
-                localStorage.removeItem(entry.date);
-                updateHistoryView(); // Refresh view
-                })
-                .catch(err => {
-                console.error("Error deleting entry:", err);
-                alert("Failed to delete entry.");
-                });
+                openDeleteModal(entry);
             });
             
             entriesList.appendChild(entryElement);
@@ -349,7 +388,6 @@ async function updateHistoryView() {
     }
 }
 
-// Update the DOMContentLoaded event listener
 // Profile Menu Functions
 function toggleProfileMenu() {
     const profileMenu = document.getElementById('profileMenu');
@@ -465,15 +503,27 @@ async function updateDisplayName(newName) {
 }
 
 document.addEventListener("DOMContentLoaded", function() {
-    // First, verify all required elements exist
-    
     // Add profile menu event listeners
     const profilePicture = document.getElementById('profilePicture');
     const photoInput = document.getElementById('photoInput');
     const userDisplayName = document.getElementById('userDisplayName');
     
-    profilePicture?.addEventListener('click', toggleProfileMenu);
-    document.addEventListener('click', handleClickOutside);
+    // Replace your profile menu toggle code with this:
+    document.getElementById('profilePicture').addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('profileMenu');
+        const isActive = menu.classList.contains('active');
+        menu.classList.toggle('active');
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('profileMenu');
+        const profilePic = document.getElementById('profilePicture');
+        if (!profilePic.contains(e.target)) {
+            menu.classList.remove('active');
+        }
+    });
     
     photoInput?.addEventListener('change', (e) => {
         if (e.target.files[0]) {
@@ -487,6 +537,7 @@ document.addEventListener("DOMContentLoaded", function() {
             updateDisplayName(newName);
         }
     });
+
     const modal = document.getElementById('moodModal');
     const closeBtn = document.querySelector('.close-button');
     const saveMoodBtn = document.getElementById('saveMood');
@@ -522,9 +573,20 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Handle modal close
-    closeBtn.addEventListener('click', () => modal.style.display = 'none');
+    closeBtn.addEventListener('click', () => {
+        modal.querySelector('.modal-content').classList.remove('modal-enter');
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
+    });
+    
     window.addEventListener('click', (e) => {
-        if (e.target === modal) modal.style.display = 'none';
+        if (e.target === modal) {
+            modal.querySelector('.modal-content').classList.remove('modal-enter');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
+        }
     });
 
     // Add tab switching functionality
@@ -537,6 +599,64 @@ document.addEventListener("DOMContentLoaded", function() {
     // Add filter functionality
     moodFilter.addEventListener('change', updateHistoryView);
     searchNotes.addEventListener('input', updateHistoryView);
+
+    // Modal event listeners
+    saveEditBtn?.addEventListener('click', async () => {
+        if (!currentEditEntry) return;
+        
+        const newNote = editNoteInput.value.trim();
+        currentEditEntry.note = newNote;
+        currentEditEntry.timestamp = new Date().toISOString();
+
+        try {
+            await saveMoodEntry(auth.currentUser.uid, currentEditEntry.date, currentEditEntry);
+            localStorage.setItem(currentEditEntry.date, JSON.stringify(currentEditEntry));
+            closeEditModal();
+            updateHistoryView();
+        } catch (err) {
+            console.error("Error saving edited entry:", err);
+            alert("Failed to save changes.");
+        }
+    });
+
+    cancelEditBtn?.addEventListener('click', closeEditModal);
+
+    confirmDeleteBtn?.addEventListener('click', async () => {
+        if (!currentDeleteEntry) return;
+
+        try {
+            // Delete from Firestore by passing null
+            await saveMoodEntry(auth.currentUser.uid, currentDeleteEntry.date, null);
+            localStorage.removeItem(currentDeleteEntry.date);
+            
+            // Update calendar tile
+            const tile = document.querySelector(`.day-tile[data-date="${currentDeleteEntry.date}"]`);
+            if (tile) {
+                tile.textContent = tile.dataset.date.split('-')[2];
+                tile.style.backgroundColor = '#e0f7fa';
+            }
+            
+            closeDeleteModal();
+            updateHistoryView();
+        } catch (err) {
+            console.error("Error deleting entry:", err);
+            alert("Failed to delete entry.");
+        }
+    });
+
+    cancelDeleteBtn?.addEventListener('click', closeDeleteModal);
+
+    // Close modals on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            if (editModal.style.display === 'flex') closeEditModal();
+            if (deleteModal.style.display === 'flex') closeDeleteModal();
+        }
+    });
+
+    // Modal close button event listeners
+    document.querySelector('.close-edit')?.addEventListener('click', closeEditModal);
+    document.querySelector('.close-delete')?.addEventListener('click', closeDeleteModal);
 
     // Update save functionality to include timestamp
     saveMoodBtn?.addEventListener('click', async function() {
@@ -553,8 +673,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
         try {
             await saveMoodEntry(auth.currentUser.uid, selectedDate, moodEntry);
+            localStorage.setItem(selectedDate, JSON.stringify(moodEntry));
             updateTileWithMood(selectedDate, selectedMood);
-            modal.style.display = 'none';
+            
+            // Close modal with animation
+            modal.querySelector('.modal-content').classList.remove('modal-enter');
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, 300);
         
             if (document.getElementById('historyView').classList.contains('active')) {
                 updateHistoryView();
@@ -570,7 +696,9 @@ function getMoodColor(mood) {
     switch (mood) {
         case "😊": return "#A3E4D7";
         case "😐": return "#F9E79F";
-        case "😢": return "#F5B7B1";
+        case "😔": return "#F5B7B1";
+        case "😡": return "#FADBD8";
+        case "😴": return "#D5DBDB";
         default: return "#D5D8DC";
     }
 }
@@ -580,8 +708,9 @@ function updateTileWithMood(date, mood) {
     if (tile) {
         tile.textContent = mood;
         tile.style.backgroundColor = getMoodColor(mood);
+        tile.classList.add('tile-updated');
+        setTimeout(() => {
+            tile.classList.remove('tile-updated');
+        }, 600);
     }
 }
-
-
-
