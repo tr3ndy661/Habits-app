@@ -264,15 +264,83 @@ async function updateHistoryView() {
             const entryElement = document.createElement('div');
             entryElement.className = 'entry-card';
             entryElement.style.backgroundColor = getMoodColor(entry.mood);
-            
+        
+            // handling the readmore/less functionality
+            const fullNote = entry.note || 'No note';
+            const shortNote = fullNote.length > 100 ? fullNote.slice(0, 100) + '...' : fullNote;
+            const showReadMore = fullNote.length > 100;
+
             entryElement.innerHTML = `
                 <div class="entry-mood">${entry.mood}</div>
                 <div class="entry-details">
                     <div class="entry-date">${formattedDate}</div>
                     <div class="entry-time">${formattedTime}</div>
                 </div>
-                <div class="entry-note">${entry.note || 'No note'}</div>
+                <div class="entry-note">
+                    <span class="short-note">${shortNote}</span>
+                    ${showReadMore ? `<span class="full-note" style="display:none;">${fullNote}</span>` : ''}
+                    ${showReadMore ? `<button class="read-more-btn">Read more</button>` : ''}
+                </div>
+                <div class="entry-actions">
+                <button class="edit-entry-btn">✏️</button>
+                <button class="remove-entry-btn">🗑️</button>
+            </div>
             `;
+            if (showReadMore) {
+                const readMoreBtn = entryElement.querySelector('.read-more-btn');
+                const shortNoteSpan = entryElement.querySelector('.short-note');
+                const fullNoteSpan = entryElement.querySelector('.full-note');
+
+                readMoreBtn.addEventListener('click', () => {
+                    if (fullNoteSpan.style.display === 'none') {
+                        shortNoteSpan.style.display = 'none';
+                        fullNoteSpan.style.display = 'inline';
+                        readMoreBtn.textContent = 'Read less';
+                    } else {
+                        shortNoteSpan.style.display = 'inline';
+                        fullNoteSpan.style.display = 'none';
+                        readMoreBtn.textContent = 'Read more';
+                    }
+                });
+            }
+            // Handle Edit functionality
+            const editBtn = entryElement.querySelector('.edit-entry-btn');
+            editBtn.addEventListener('click', () => {
+            const newNote = prompt("Edit your note:", entry.note || '');
+            if (newNote !== null) {
+                entry.note = newNote;
+                entry.timestamp = new Date().toISOString();
+
+                // Save to Firestore
+                saveMoodEntry(auth.currentUser.uid, entry.date, entry)
+                .then(() => {
+                    localStorage.setItem(entry.date, JSON.stringify(entry));
+                    updateHistoryView(); // Refresh view
+                })
+                .catch(err => {
+                    console.error("Error saving edited entry:", err);
+                    alert("Failed to save changes.");
+                });
+            }
+            });
+
+            // Handle Remove functionality
+            const removeBtn = entryElement.querySelector('.remove-entry-btn');
+            removeBtn.addEventListener('click', () => {
+            const confirmDelete = confirm("Are you sure you want to delete this entry?");
+            if (!confirmDelete) return;
+
+            // Delete from Firestore
+            saveMoodEntry(auth.currentUser.uid, entry.date, null)
+                .then(() => {
+                localStorage.removeItem(entry.date);
+                updateHistoryView(); // Refresh view
+                })
+                .catch(err => {
+                console.error("Error deleting entry:", err);
+                alert("Failed to delete entry.");
+                });
+            });
             
             entriesList.appendChild(entryElement);
         });

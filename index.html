@@ -153,6 +153,32 @@
             <button id="saveMood">Save</button>
         </div>
     </div>
+            <!-- Edit Modal -->
+        <div id="editModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-edit">&times;</span>
+            <h3>Edit Mood Note</h3>
+            <textarea id="editNoteInput" rows="5" style="width: 100%;"></textarea>
+            <div class="modal-buttons">
+            <button id="saveEditBtn">Save</button>
+            <button id="cancelEditBtn">Cancel</button>
+            </div>
+        </div>
+        </div>
+
+        <!-- Delete Modal -->
+        <div id="deleteModal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-delete">&times;</span>
+            <h3>Delete this mood entry?</h3>
+            <p>This action cannot be undone.</p>
+            <div class="modal-buttons">
+            <button id="confirmDeleteBtn">Yes, Delete</button>
+            <button id="cancelDeleteBtn">Cancel</button>
+            </div>
+        </div>
+        </div>
+
 </main>
 
 
